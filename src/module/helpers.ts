@@ -215,6 +215,80 @@ export async function handleClickEvents(e: JQuery.ClickEvent<HTMLElement, undefi
     this.render();
   }
 
+  if (action === 'configureCell' && !!entryId) {
+    const cellToConfigure = data.grid.entries[entryId];
+    log(false, 'configureCell cellToConfigure', cellToConfigure);
+
+    const { newSpanRows, newSpanCols } = await new Promise((resolve, reject) => {
+      new Dialog({
+        title: game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.CellConfig`),
+        content: `
+        <form class="flexcol">
+          <div class="form-group">
+            <label for="spanRows">${game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.RowSpan`)}</label>
+            <input type="number" name="spanRows" placeholder="1" value="${cellToConfigure.spanRows || 1}">
+          </div>
+          <div class="form-group">
+            <label for="spanCols">${game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.ColSpan`)}</label>
+            <input type="number" name="spanCols" placeholder="1" value="${cellToConfigure.spanCols || 1}">
+          </div>
+        </form>
+      `,
+        buttons: {
+          no: {
+            icon: '<i class="fas fa-times"></i>',
+            label: game.i18n.localize('Cancel'),
+          },
+          yes: {
+            icon: '<i class="fas fa-check"></i>',
+            label: game.i18n.localize('Submit'),
+            callback: (html: JQuery<HTMLElement>) => {
+              const formValues = {
+                newSpanRows: Number(html.find('[name="spanRows"]').val()),
+                newSpanCols: Number(html.find('[name="spanCols"]').val()),
+              };
+
+              log(false, 'dialog formValues', formValues);
+
+              resolve(formValues);
+            },
+          },
+        },
+        default: 'yes',
+        close: () => {
+          reject();
+        },
+      }).render(true);
+    });
+
+    log(false, 'new span values from dialog', {
+      newSpanRows,
+      newSpanCols,
+    });
+
+    const newEntries = {
+      ...data.grid.entries,
+      [entryId]: {
+        ...cellToConfigure,
+        spanRows: newSpanRows,
+        spanCols: newSpanCols,
+      },
+    };
+
+    log(false, 'newEntries', newEntries);
+
+    const newData = {
+      ...data,
+      grid: {
+        ...data.grid,
+        entries: newEntries,
+      },
+    };
+
+    await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, newData);
+    this.render();
+  }
+
   if (action === 'open' && !!entityUuid) {
     try {
       const relevantEntity = await fromUuid(entityUuid);

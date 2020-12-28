@@ -23,15 +23,19 @@
         this.entityUuid}}data-entity-uuid="{{this.entityUuid}}" {{/if}} {{#if
         this.entryId}}data-entry-id="{{this.entryId}}" {{/if}} style="
           {{#if this.x}}grid-column: {{this.x}};{{/if}}
-          {{#if this.y}}grid-row:{{this.y}}{{/if}}
-          {{#if this.spanX}}grid-column-end: {{this.spanX}};{{/if}}
-          {{#if this.spanY}}grid-row-end: {{this.spanY}};{{/if}}">
+          {{#if this.y}}grid-row:{{this.y}};{{/if}}
+          {{#if this.spanRows}}grid-row-end: span {{this.spanRows}};{{/if}}
+          {{#if this.spanCols}}grid-column-end: span {{this.spanCols}};{{/if}}">
 
         <div class="grid-cell-header">
           {{#if this.entityUuid}}
           <a data-action="clearCell" title="{{localize 'GMSCR.gmScreen.ClearCell'}}">
             <i class="fas fa-times-circle"></i>
           </a>
+          {{/if}}
+
+          {{#if this.entryId}}
+          <a data-action="configureCell"><i class="fas fa-cog"></i></a>
           {{/if}}
 
           <select>
@@ -68,8 +72,6 @@
             {{!-- Contents injected in GmScreenApplication.activateListeners --}}
           </div>
         </div>
-
-        <button><i class="fas fa-cog"></i></button>
       </div>
       {{/each}}
     </div>
