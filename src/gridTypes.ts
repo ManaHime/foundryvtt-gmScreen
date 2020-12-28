@@ -9,5 +9,7 @@ export interface GmScreenGrid {
 export interface GmScreenGridEntry {
   x?: number;
   y?: number;
+  spanRows?: number;
+  spanCols?: number;
   entityUuid?: string;
 }
