@@ -23,6 +23,13 @@ export const registerSettings = function () {
     hint: `${MODULE_ABBREV}.settings.${MySettings.gmScreenConfig}.Hint`,
   });
 
+  game.settings.register(MODULE_ID, MySettings.migrated, {
+    config: false,
+    default: { status: false, version: '1.2.2' },
+    scope: 'world',
+    type: Object,
+  });
+
   game.settings.register(MODULE_ID, MySettings.displayDrawer, {
     name: `${MODULE_ABBREV}.settings.${MySettings.displayDrawer}.Name`,
     default: true,
