@@ -42,7 +42,7 @@ export class GmScreenApplication extends Application {
   }
 
   getNumOccupiedCells() {
-    return this.data.grid.entries.reduce((acc, entry) => {
+    return Object.values(this.data.grid.entries).reduce((acc, entry) => {
       const cellsTaken = (entry.spanCols || 1) * (entry.spanRows || 1);
       return acc + cellsTaken;
     }, 0);
@@ -55,22 +55,13 @@ export class GmScreenApplication extends Application {
    */
   async addEntry(newEntry: GmScreenGridEntry) {
     const gridData: GmScreenConfig = await game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
-    const newEntries = [...gridData.grid.entries];
+    const newEntries = { ...gridData.grid.entries };
 
-    const existingEntryIndex = newEntries.findIndex((entry) => {
-      return entry.x === newEntry.x && entry.y === newEntry.y;
-    });
-
-    if (existingEntryIndex > -1) {
-      newEntries[existingEntryIndex] = newEntry;
-    } else {
-      newEntries.push(newEntry);
-    }
+    newEntries[newEntry.entryId] = newEntry;
 
     log(false, 'addEntry', {
       gridData,
       newEntries,
-      existingEntryIndex,
       newEntry,
       ret: {
         ...gridData,
@@ -85,7 +76,7 @@ export class GmScreenApplication extends Application {
       ...gridData,
       grid: {
         ...gridData.grid,
-        entries: newEntries.filter(({ entityUuid }) => !!entityUuid),
+        entries: newEntries, // .filter(({ entityUuid }) => !!entityUuid),
       },
     });
 
@@ -109,8 +100,11 @@ export class GmScreenApplication extends Application {
 
     // handle select of an entity
     $(html).on('change', 'select', async (e) => {
+      const gridElementPosition = getGridElementsPosition($(e.target).parent());
+      const newEntryId = `${gridElementPosition.x}-${gridElementPosition.y}`;
       const newEntry: GmScreenGridEntry = {
-        ...getGridElementsPosition($(e.target).parent()),
+        ...gridElementPosition,
+        entryId: newEntryId,
         entityUuid: e.target.value,
       };
       this.addEntry(newEntry);
@@ -176,11 +170,12 @@ export class GmScreenApplication extends Application {
     });
 
     const emptyCellsNum = Number(columns) * Number(rows) - this.getNumOccupiedCells();
-    const emptyCells: GmScreenGridEntry[] = emptyCellsNum > 0 ? [...new Array(emptyCellsNum)].map(() => ({})) : [];
+    const emptyCells: Partial<GmScreenGridEntry>[] =
+      emptyCellsNum > 0 ? [...new Array(emptyCellsNum)].map(() => ({})) : [];
 
     const getAllGridEntries = async () => {
       return Promise.all(
-        data.grid.entries.map(async (entry: GmScreenGridEntry) => {
+        Object.values(this.data.grid.entries).map(async (entry: GmScreenGridEntry) => {
           const relevantEntity = await fromUuid(entry.entityUuid);
 
           log(false, 'entity hydration', {
@@ -255,8 +250,12 @@ export class GmScreenApplication extends Application {
 
     const entityUuid = `${data.type}.${data.id}`;
 
+    const gridElementPosition = getGridElementsPosition($(event.target).closest('.grid-cell'));
+    const newEntryId = `${gridElementPosition.x}-${gridElementPosition.y}`;
+
     const newEntry: GmScreenGridEntry = {
-      ...getGridElementsPosition($(event.target).closest('.grid-cell')),
+      ...gridElementPosition,
+      entryId: newEntryId,
       entityUuid,
     };
 

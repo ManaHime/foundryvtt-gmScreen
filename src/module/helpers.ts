@@ -167,6 +167,7 @@ export async function handleClickEvents(e: JQuery.ClickEvent<HTMLElement, undefi
 
   const action = e.currentTarget.dataset.action;
   const entityUuid = $(e.currentTarget).parents('[data-entity-uuid]')?.data()?.entityUuid;
+  const entryId = $(e.currentTarget).parents('[data-entry-id]')?.data()?.entryId;
 
   log(false, e.currentTarget.localName, 'clicked', {
     e,
@@ -185,29 +186,31 @@ export async function handleClickEvents(e: JQuery.ClickEvent<HTMLElement, undefi
     this.render();
   }
 
-  if (action === 'remove' && !!entityUuid) {
-    const clearedCell = data.grid.entries.find((entry) => entry.entityUuid === entityUuid);
+  if (action === 'clearCell' && !!entryId) {
+    const clearedCell = data.grid.entries[entryId];
     const shouldKeepCellLayout = clearedCell.spanCols || clearedCell.spanRows;
     if (shouldKeepCellLayout) {
       delete clearedCell.entityUuid;
+    }
+
+    const newEntries = {
+      ...data.grid.entries,
+    };
+
+    if (shouldKeepCellLayout) {
+      newEntries[entryId] = clearedCell;
+    } else {
+      delete newEntries[entryId];
     }
 
     const newData = {
       ...data,
       grid: {
         ...data.grid,
-        entries: [
-          ...data.grid.entries.filter((entry) => entry.entityUuid !== entityUuid),
-          ...(shouldKeepCellLayout
-            ? [
-                {
-                  ...clearedCell,
-                },
-              ]
-            : []),
-        ],
+        entries: newEntries,
       },
     };
+
     await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, newData);
     this.render();
   }

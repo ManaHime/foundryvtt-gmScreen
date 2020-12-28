@@ -1,9 +1,11 @@
 import { MODULE_ABBREV, MODULE_ID, MySettings } from './constants';
 import { GmScreenConfig } from '../gridTypes';
 
+//TODO: DATA MODEL CHANGED NEED MIGRATION
+
 const defaultGmScreenConfig: GmScreenConfig = {
   grid: {
-    entries: [],
+    entries: {},
   },
 };
 
