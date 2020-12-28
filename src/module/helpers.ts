@@ -163,7 +163,7 @@ export function handleClear() {
 
 export async function handleClickEvents(e: JQuery.ClickEvent<HTMLElement, undefined, HTMLElement, HTMLElement>) {
   e.preventDefault();
-  const data: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
+  const data: GmScreenConfig = await game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
 
   const action = e.currentTarget.dataset.action;
   const entityUuid = $(e.currentTarget).parents('[data-entity-uuid]')?.data()?.entityUuid;
@@ -186,11 +186,26 @@ export async function handleClickEvents(e: JQuery.ClickEvent<HTMLElement, undefi
   }
 
   if (action === 'remove' && !!entityUuid) {
+    const clearedCell = data.grid.entries.find((entry) => entry.entityUuid === entityUuid);
+    const shouldKeepCellLayout = clearedCell.spanCols || clearedCell.spanRows;
+    if (shouldKeepCellLayout) {
+      delete clearedCell.entityUuid;
+    }
+
     const newData = {
       ...data,
       grid: {
         ...data.grid,
-        entries: data.grid.entries.filter((entry) => entry.entityUuid !== entityUuid),
+        entries: [
+          ...data.grid.entries.filter((entry) => entry.entityUuid !== entityUuid),
+          ...(shouldKeepCellLayout
+            ? [
+                {
+                  ...clearedCell,
+                },
+              ]
+            : []),
+        ],
       },
     };
     await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, newData);

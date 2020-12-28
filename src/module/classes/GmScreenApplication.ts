@@ -3,13 +3,14 @@ import { MODULE_ABBREV, MODULE_ID, MySettings, TEMPLATES } from '../constants';
 import { getGridElementsPosition, handleClear, handleClickEvents, injectCellContents, log } from '../helpers';
 
 export class GmScreenApplication extends Application {
-  data: any;
+  data: GmScreenConfig;
   expanded: boolean;
+  columns: number;
+  rows: number;
 
   constructor(options = {}) {
     super(options);
 
-    this.data = {};
     this.expanded = false;
   }
 
@@ -38,6 +39,13 @@ export class GmScreenApplication extends Application {
       dragDrop: [{ dragSelector: '.grid-cell', dropSelector: '.grid-cell' }],
       scrollY: [...new Array(totalCells)].map((_, index) => `#gm-screen-cell-${index} .grid-cell-content`),
     });
+  }
+
+  getNumOccupiedCells() {
+    return this.data.grid.entries.reduce((acc, entry) => {
+      const cellsTaken = (entry.spanCols || 1) * (entry.spanRows || 1);
+      return acc + cellsTaken;
+    }, 0);
   }
 
   /**
@@ -144,9 +152,13 @@ export class GmScreenApplication extends Application {
 
   async getData() {
     const data: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
-    const columns: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.columns);
-    const rows: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.rows);
+    const columns: number = game.settings.get(MODULE_ID, MySettings.columns);
+    const rows: number = game.settings.get(MODULE_ID, MySettings.rows);
     const displayDrawer: boolean = game.settings.get(MODULE_ID, MySettings.displayDrawer);
+
+    this.data = data;
+    this.columns = columns;
+    this.rows = rows;
 
     const entityOptions = [
       { label: 'ENTITY.Actor', entries: game.actors.entries },
@@ -163,7 +175,7 @@ export class GmScreenApplication extends Application {
       };
     });
 
-    const emptyCellsNum = Number(columns) * Number(rows) - data.grid.entries.length;
+    const emptyCellsNum = Number(columns) * Number(rows) - this.getNumOccupiedCells();
     const emptyCells: GmScreenGridEntry[] = emptyCellsNum > 0 ? [...new Array(emptyCellsNum)].map(() => ({})) : [];
 
     const getAllGridEntries = async () => {
@@ -195,7 +207,7 @@ export class GmScreenApplication extends Application {
     };
 
     log(false, 'getData', {
-      data,
+      data: this.data,
       newAppData,
     });
 
