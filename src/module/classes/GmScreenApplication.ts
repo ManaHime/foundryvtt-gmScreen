@@ -1,13 +1,6 @@
 import { GmScreenConfig, GmScreenGridEntry } from '../../gridTypes';
 import { MODULE_ABBREV, MODULE_ID, MySettings, TEMPLATES } from '../constants';
-import {
-  getGridElementsPosition,
-  getUserCellConfigurationInput,
-  handleClear,
-  // handleClickEvents,
-  injectCellContents,
-  log,
-} from '../helpers';
+import { getGridElementsPosition, getUserCellConfigurationInput, injectCellContents, log } from '../helpers';
 
 enum ClickAction {
   'clearGrid' = 'clearGrid',
@@ -70,29 +63,31 @@ export class GmScreenApplication extends Application {
    * @param newEntry The Entry being added.
    */
   async addEntry(newEntry: GmScreenGridEntry) {
-    const gridData: GmScreenConfig = await game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
-    const newEntries = { ...gridData.grid.entries };
+    const newEntries = { ...this.data.grid.entries };
 
-    newEntries[newEntry.entryId] = mergeObject(newEntries[newEntry.entryId], newEntry);
+    newEntries[newEntry.entryId] = {
+      ...newEntries[newEntry.entryId],
+      ...newEntry,
+    };
 
     log(false, 'addEntry', {
-      gridData,
+      gridData: this.data,
       newEntries,
       newEntry,
       ret: {
-        ...gridData,
+        ...this.data,
         grid: {
-          ...gridData.grid,
+          ...this.data.grid,
           entries: newEntries,
         },
       },
     });
 
     await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, {
-      ...gridData,
+      ...this.data,
       grid: {
-        ...gridData.grid,
-        entries: newEntries, // .filter(({ entityUuid }) => !!entityUuid),
+        ...this.data.grid,
+        entries: newEntries,
       },
     });
 
@@ -138,12 +133,38 @@ export class GmScreenApplication extends Application {
     }
   }
 
-  async handleClickEvents(e: JQuery.ClickEvent<HTMLElement, undefined, HTMLElement, HTMLElement>) {
+  handleClear() {
+    log(false, 'handleClear');
+
+    Dialog.confirm({
+      title: game.i18n.localize(`${MODULE_ABBREV}.warnings.clearConfirm.Title`),
+      content: game.i18n.localize(`${MODULE_ABBREV}.warnings.clearConfirm.Content`),
+      yes: async () => {
+        await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, {
+          ...this.data,
+          grid: {
+            ...this.data.grid,
+            entries: [],
+          },
+        });
+
+        this.render();
+      },
+      no: () => {},
+    });
+  }
+
+  async handleClickEvent(e: JQuery.ClickEvent<HTMLElement, undefined, HTMLElement, HTMLElement>) {
     e.preventDefault();
 
     const action: ClickAction = e.currentTarget.dataset.action as ClickAction;
     const entityUuid = $(e.currentTarget).parents('[data-entity-uuid]')?.data()?.entityUuid;
     const entryId = $(e.currentTarget).parents('[data-entry-id]')?.data()?.entryId;
+
+    log(false, 'handleClickEvent', {
+      e,
+      action,
+    });
 
     switch (action) {
       case ClickAction.clearCell: {
@@ -154,20 +175,24 @@ export class GmScreenApplication extends Application {
         break;
       }
       case ClickAction.clearGrid: {
-        if (!entityUuid) {
-          return;
-        }
-        handleClear();
+        this.handleClear();
         break;
       }
       case ClickAction.configureCell: {
-        if (!entryId) {
-          return;
-        }
-        const cellToConfigure = this.data.grid.entries[entryId];
+        const { x, y } = getGridElementsPosition($(e.target).parent());
+
+        const cellToConfigure: GmScreenGridEntry = this.data.grid.entries[entryId] || {
+          x,
+          y,
+          entryId: `${x}-${y}`,
+        };
+
         log(false, 'configureCell cellToConfigure', cellToConfigure);
 
-        const { newSpanRows, newSpanCols } = await getUserCellConfigurationInput(cellToConfigure);
+        const { newSpanRows, newSpanCols } = await getUserCellConfigurationInput(cellToConfigure, {
+          rows: this.rows,
+          columns: this.columns,
+        });
 
         log(false, 'new span values from dialog', {
           newSpanRows,
@@ -176,7 +201,7 @@ export class GmScreenApplication extends Application {
 
         const newEntries = {
           ...this.data.grid.entries,
-          [entryId]: {
+          [cellToConfigure.entryId]: {
             ...cellToConfigure,
             spanRows: newSpanRows,
             spanCols: newSpanCols,
@@ -240,8 +265,8 @@ export class GmScreenApplication extends Application {
 
   activateListeners(html) {
     super.activateListeners(html);
-    $(html).on('click', 'button', this.handleClickEvents.bind(this));
-    $(html).on('click', 'a', this.handleClickEvents.bind(this));
+    $(html).on('click', 'button', this.handleClickEvent.bind(this));
+    $(html).on('click', 'a', this.handleClickEvent.bind(this));
 
     // handle select of an entity
     $(html).on('change', 'select', async (e) => {
@@ -369,7 +394,7 @@ export class GmScreenApplication extends Application {
         label: game.i18n.localize(`${MODULE_ABBREV}.gmScreen.Reset`),
         class: 'clear',
         icon: 'fas fa-ban',
-        onclick: () => handleClear.bind(this)(),
+        onclick: () => this.handleClear.bind(this)(),
       },
       {
         label: game.i18n.localize(`${MODULE_ABBREV}.gmScreen.Refresh`),

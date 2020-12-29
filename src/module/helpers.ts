@@ -1,4 +1,4 @@
-import { GmScreenConfig, GmScreenGridEntry } from '../gridTypes';
+import { GmScreenConfig, GmScreenGrid, GmScreenGridEntry } from '../gridTypes';
 import { getCompactGenericEntityDisplay } from './classes/CompactGenericDisplay';
 import { CompactJournalEntryDisplay } from './classes/CompactJournalEntryDisplay';
 import { CompactRollTableDisplay } from './classes/CompactRollTableDisplay';
@@ -10,7 +10,13 @@ export function log(force: boolean, ...args) {
   }
 }
 
-export function getUserCellConfigurationInput(cellToConfigure: GmScreenGridEntry) {
+export function getUserCellConfigurationInput(
+  cellToConfigure: GmScreenGridEntry,
+  gridDetails: {
+    rows: number;
+    columns: number;
+  }
+) {
   return new Promise<{
     newSpanRows: number;
     newSpanCols: number;
@@ -21,11 +27,15 @@ export function getUserCellConfigurationInput(cellToConfigure: GmScreenGridEntry
   <form class="flexcol">
     <div class="form-group">
       <label for="spanRows">${game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.RowSpan`)}</label>
-      <input type="number" name="spanRows" placeholder="1" value="${cellToConfigure.spanRows || 1}">
+      <input type="number" step="1" name="spanRows" min="1" max="${gridDetails.rows + 1 - cellToConfigure.y}" value="${
+        cellToConfigure.spanRows || 1
+      }">
     </div>
     <div class="form-group">
       <label for="spanCols">${game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.ColSpan`)}</label>
-      <input type="number" name="spanCols" placeholder="1" value="${cellToConfigure.spanCols || 1}">
+      <input type="number" step="1" name="spanCols" min="1" max="${
+        gridDetails.columns + 1 - cellToConfigure.x
+      }" value="${cellToConfigure.spanCols || 1}">
     </div>
   </form>
 `,
@@ -33,6 +43,20 @@ export function getUserCellConfigurationInput(cellToConfigure: GmScreenGridEntry
         no: {
           icon: '<i class="fas fa-times"></i>',
           label: game.i18n.localize('Cancel'),
+        },
+        reset: {
+          icon: '<i class="fas fa-undo"></i>',
+          label: game.i18n.localize('Default'),
+          callback: (html: JQuery<HTMLElement>) => {
+            const formValues = {
+              newSpanRows: 1,
+              newSpanCols: 1,
+            };
+
+            log(false, 'dialog formValues', formValues);
+
+            resolve(formValues);
+          },
         },
         yes: {
           icon: '<i class="fas fa-check"></i>',
@@ -175,25 +199,4 @@ export async function injectCellContents(entityUuid: string, gridCellContentElem
       gridCellContentElement.append(entitySheetInner);
     }
   }
-}
-
-export function handleClear() {
-  const data: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
-
-  Dialog.confirm({
-    title: game.i18n.localize(`${MODULE_ABBREV}.warnings.clearConfirm.Title`),
-    content: game.i18n.localize(`${MODULE_ABBREV}.warnings.clearConfirm.Content`),
-    yes: async () => {
-      await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, {
-        ...data,
-        grid: {
-          ...data.grid,
-          entries: [],
-        },
-      });
-
-      this.render();
-    },
-    no: () => {},
-  });
 }
