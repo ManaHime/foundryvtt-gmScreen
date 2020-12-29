@@ -1,11 +1,14 @@
 import { MODULE_ABBREV, MODULE_ID, MySettings } from './constants';
 import { GmScreenConfig } from '../gridTypes';
 
-//TODO: DATA MODEL CHANGED NEED MIGRATION
-
 const defaultGmScreenConfig: GmScreenConfig = {
-  grid: {
+  activeGridId: 'default',
+  grids: {
+    default: {
+      name: 'Main',
+      id: 'default',
     entries: {},
+  },
   },
 };
 
@@ -67,11 +70,7 @@ export const registerSettings = function () {
     hint: `${MODULE_ABBREV}.settings.${MySettings.reset}.Hint`,
     onChange: (selected) => {
       if (selected) {
-        game.settings.set(MODULE_ID, MySettings.gmScreenConfig, {
-          grid: {
-            entries: [],
-          },
-        });
+        game.settings.set(MODULE_ID, MySettings.gmScreenConfig, defaultGmScreenConfig);
       }
     },
   });

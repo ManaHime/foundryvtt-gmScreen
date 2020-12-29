@@ -1,6 +1,6 @@
 export interface GmScreenConfig {
   grids: Record<string, GmScreenGrid>; // object of all grids keyed by uuid
-  activeGridId: string; // currently visible grid's uuid
+  activeGridId: keyof GmScreenConfig['grids']; // currently visible grid's id
 }
 
 export interface GmScreenGrid {
