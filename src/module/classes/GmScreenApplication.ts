@@ -199,14 +199,40 @@ export class GmScreenApplication extends Application {
           newSpanCols,
         });
 
+        const newCell = {
+          ...cellToConfigure,
+          spanRows: newSpanRows,
+          spanCols: newSpanCols,
+        };
+
         const newEntries = {
           ...this.data.grid.entries,
-          [cellToConfigure.entryId]: {
-            ...cellToConfigure,
-            spanRows: newSpanRows,
-            spanCols: newSpanCols,
-          },
+          [newCell.entryId]: newCell,
         };
+
+        // based on the X, Y, and Span values of `newCell` find all problematic entryIds
+        // BRITTLE if entryId's formula changes
+        const problemCoordinates = [...Array(newCell.spanCols).keys()]
+          .map((_, index) => {
+            const problemX = newCell.x + index;
+
+            return [...Array(newCell.spanRows).keys()].map((_, index) => {
+              const problemY = newCell.y + index;
+              return `${problemX}-${problemY}`; // problem cell's id
+            });
+          })
+          .flat();
+
+        log(false, {
+          problemCoordinates,
+        });
+
+        // get any overlapped cells and remove them
+        Object.values(newEntries).forEach((entry) => {
+          if (problemCoordinates.includes(entry.entryId) && entry.entryId !== newCell.entryId) {
+            delete newEntries[entry.entryId];
+          }
+        });
 
         log(false, 'newEntries', newEntries);
 
