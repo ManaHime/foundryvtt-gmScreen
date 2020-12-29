@@ -1,4 +1,4 @@
-import { GmScreenConfig } from '../gridTypes';
+import { GmScreenConfig, GmScreenGridEntry } from '../gridTypes';
 import { getCompactGenericEntityDisplay } from './classes/CompactGenericDisplay';
 import { CompactJournalEntryDisplay } from './classes/CompactJournalEntryDisplay';
 import { CompactRollTableDisplay } from './classes/CompactRollTableDisplay';
@@ -8,6 +8,53 @@ export function log(force: boolean, ...args) {
   if (force || CONFIG[MODULE_ID].debug === true) {
     console.log(MODULE_ID, '|', ...args);
   }
+}
+
+export function getUserCellConfigurationInput(cellToConfigure: GmScreenGridEntry) {
+  return new Promise<{
+    newSpanRows: number;
+    newSpanCols: number;
+  }>((resolve, reject) => {
+    new Dialog({
+      title: game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.CellConfig`),
+      content: `
+  <form class="flexcol">
+    <div class="form-group">
+      <label for="spanRows">${game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.RowSpan`)}</label>
+      <input type="number" name="spanRows" placeholder="1" value="${cellToConfigure.spanRows || 1}">
+    </div>
+    <div class="form-group">
+      <label for="spanCols">${game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.ColSpan`)}</label>
+      <input type="number" name="spanCols" placeholder="1" value="${cellToConfigure.spanCols || 1}">
+    </div>
+  </form>
+`,
+      buttons: {
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: game.i18n.localize('Cancel'),
+        },
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: game.i18n.localize('Submit'),
+          callback: (html: JQuery<HTMLElement>) => {
+            const formValues = {
+              newSpanRows: Number(html.find('[name="spanRows"]').val()),
+              newSpanCols: Number(html.find('[name="spanCols"]').val()),
+            };
+
+            log(false, 'dialog formValues', formValues);
+
+            resolve(formValues);
+          },
+        },
+      },
+      default: 'yes',
+      close: () => {
+        reject();
+      },
+    }).render(true);
+  });
 }
 
 export function getGridElementsPosition(element: JQuery<HTMLElement>) {
@@ -61,16 +108,6 @@ export function getGridElementsPosition(element: JQuery<HTMLElement>) {
   });
   //Return an object with properties row and column
   return { y: elementRow, x: elementColumn };
-}
-
-export function getRollTableTemplateData(rollTable: RollTable) {
-  const data = new RollTableConfig(rollTable).getData();
-  log(false, 'getRollTableTemplateData', {
-    rollTable,
-    data,
-  });
-
-  return data;
 }
 
 export async function injectCellContents(entityUuid: string, gridCellContentElement: JQuery<HTMLElement>) {
@@ -159,163 +196,4 @@ export function handleClear() {
     },
     no: () => {},
   });
-}
-
-export async function handleClickEvents(e: JQuery.ClickEvent<HTMLElement, undefined, HTMLElement, HTMLElement>) {
-  e.preventDefault();
-  const data: GmScreenConfig = await game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
-
-  const action = e.currentTarget.dataset.action;
-  const entityUuid = $(e.currentTarget).parents('[data-entity-uuid]')?.data()?.entityUuid;
-  const entryId = $(e.currentTarget).parents('[data-entry-id]')?.data()?.entryId;
-
-  log(false, e.currentTarget.localName, 'clicked', {
-    e,
-    target: e.currentTarget,
-    dataset: e.currentTarget.dataset,
-    entityUuid,
-    action,
-    data,
-  });
-
-  if (action === 'clearGrid') {
-    handleClear.bind(this)();
-  }
-
-  if (action === 'refresh') {
-    this.render();
-  }
-
-  if (action === 'clearCell' && !!entryId) {
-    const clearedCell = data.grid.entries[entryId];
-    const shouldKeepCellLayout = clearedCell.spanCols || clearedCell.spanRows;
-    if (shouldKeepCellLayout) {
-      delete clearedCell.entityUuid;
-    }
-
-    const newEntries = {
-      ...data.grid.entries,
-    };
-
-    if (shouldKeepCellLayout) {
-      newEntries[entryId] = clearedCell;
-    } else {
-      delete newEntries[entryId];
-    }
-
-    const newData = {
-      ...data,
-      grid: {
-        ...data.grid,
-        entries: newEntries,
-      },
-    };
-
-    await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, newData);
-    this.render();
-  }
-
-  if (action === 'configureCell' && !!entryId) {
-    const cellToConfigure = data.grid.entries[entryId];
-    log(false, 'configureCell cellToConfigure', cellToConfigure);
-
-    const { newSpanRows, newSpanCols } = await new Promise((resolve, reject) => {
-      new Dialog({
-        title: game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.CellConfig`),
-        content: `
-        <form class="flexcol">
-          <div class="form-group">
-            <label for="spanRows">${game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.RowSpan`)}</label>
-            <input type="number" name="spanRows" placeholder="1" value="${cellToConfigure.spanRows || 1}">
-          </div>
-          <div class="form-group">
-            <label for="spanCols">${game.i18n.localize(`${MODULE_ABBREV}.cellConfigDialog.ColSpan`)}</label>
-            <input type="number" name="spanCols" placeholder="1" value="${cellToConfigure.spanCols || 1}">
-          </div>
-        </form>
-      `,
-        buttons: {
-          no: {
-            icon: '<i class="fas fa-times"></i>',
-            label: game.i18n.localize('Cancel'),
-          },
-          yes: {
-            icon: '<i class="fas fa-check"></i>',
-            label: game.i18n.localize('Submit'),
-            callback: (html: JQuery<HTMLElement>) => {
-              const formValues = {
-                newSpanRows: Number(html.find('[name="spanRows"]').val()),
-                newSpanCols: Number(html.find('[name="spanCols"]').val()),
-              };
-
-              log(false, 'dialog formValues', formValues);
-
-              resolve(formValues);
-            },
-          },
-        },
-        default: 'yes',
-        close: () => {
-          reject();
-        },
-      }).render(true);
-    });
-
-    log(false, 'new span values from dialog', {
-      newSpanRows,
-      newSpanCols,
-    });
-
-    const newEntries = {
-      ...data.grid.entries,
-      [entryId]: {
-        ...cellToConfigure,
-        spanRows: newSpanRows,
-        spanCols: newSpanCols,
-      },
-    };
-
-    log(false, 'newEntries', newEntries);
-
-    const newData = {
-      ...data,
-      grid: {
-        ...data.grid,
-        entries: newEntries,
-      },
-    };
-
-    await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, newData);
-    this.render();
-  }
-
-  if (action === 'open' && !!entityUuid) {
-    try {
-      const relevantEntity = await fromUuid(entityUuid);
-      const relevantEntitySheet = relevantEntity?.sheet;
-      log(false, 'trying to edit entity', { relevantEntitySheet });
-
-      // If the relevantEntitySheet is already rendered:
-      if (relevantEntitySheet.rendered) {
-        relevantEntitySheet.maximize();
-        //@ts-ignore
-        relevantEntitySheet.bringToTop();
-      }
-
-      // Otherwise render the relevantEntitySheet
-      else relevantEntitySheet.render(true);
-    } catch (e) {
-      log(true, 'error opening entity sheet', e);
-    }
-  }
-
-  if (action === 'toggle-gm-screen') {
-    try {
-      this.toggleGmScreenVisibility();
-
-      // this.render();
-    } catch (e) {
-      log(true, 'error toggling GM Screen', e);
-    }
-  }
 }

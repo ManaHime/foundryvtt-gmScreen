@@ -1,6 +1,22 @@
 import { GmScreenConfig, GmScreenGridEntry } from '../../gridTypes';
 import { MODULE_ABBREV, MODULE_ID, MySettings, TEMPLATES } from '../constants';
-import { getGridElementsPosition, handleClear, handleClickEvents, injectCellContents, log } from '../helpers';
+import {
+  getGridElementsPosition,
+  getUserCellConfigurationInput,
+  handleClear,
+  // handleClickEvents,
+  injectCellContents,
+  log,
+} from '../helpers';
+
+enum ClickAction {
+  'clearGrid' = 'clearGrid',
+  'refresh' = 'refresh',
+  'clearCell' = 'clearCell',
+  'configureCell' = 'configureCell',
+  'open' = 'open',
+  'toggle-gm-screen' = 'toggle-gm-screen',
+}
 
 export class GmScreenApplication extends Application {
   data: GmScreenConfig;
@@ -57,7 +73,7 @@ export class GmScreenApplication extends Application {
     const gridData: GmScreenConfig = await game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
     const newEntries = { ...gridData.grid.entries };
 
-    newEntries[newEntry.entryId] = newEntry;
+    newEntries[newEntry.entryId] = mergeObject(newEntries[newEntry.entryId], newEntry);
 
     log(false, 'addEntry', {
       gridData,
@@ -83,6 +99,35 @@ export class GmScreenApplication extends Application {
     this.render();
   }
 
+  async removeEntry(entryId: string) {
+    const clearedCell = this.data.grid.entries[entryId];
+    const shouldKeepCellLayout = clearedCell.spanCols || clearedCell.spanRows;
+    if (shouldKeepCellLayout) {
+      delete clearedCell.entityUuid;
+    }
+
+    const newEntries = {
+      ...this.data.grid.entries,
+    };
+
+    if (shouldKeepCellLayout) {
+      newEntries[entryId] = clearedCell;
+    } else {
+      delete newEntries[entryId];
+    }
+
+    const newData = {
+      ...this.data,
+      grid: {
+        ...this.data.grid,
+        entries: newEntries,
+      },
+    };
+
+    await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, newData);
+    this.render();
+  }
+
   toggleGmScreenVisibility() {
     this.expanded = !this.expanded;
 
@@ -93,10 +138,110 @@ export class GmScreenApplication extends Application {
     }
   }
 
+  async handleClickEvents(e: JQuery.ClickEvent<HTMLElement, undefined, HTMLElement, HTMLElement>) {
+    e.preventDefault();
+
+    const action: ClickAction = e.currentTarget.dataset.action as ClickAction;
+    const entityUuid = $(e.currentTarget).parents('[data-entity-uuid]')?.data()?.entityUuid;
+    const entryId = $(e.currentTarget).parents('[data-entry-id]')?.data()?.entryId;
+
+    switch (action) {
+      case ClickAction.clearCell: {
+        if (!entryId) {
+          return;
+        }
+        this.removeEntry(entryId);
+        break;
+      }
+      case ClickAction.clearGrid: {
+        if (!entityUuid) {
+          return;
+        }
+        handleClear();
+        break;
+      }
+      case ClickAction.configureCell: {
+        if (!entryId) {
+          return;
+        }
+        const cellToConfigure = this.data.grid.entries[entryId];
+        log(false, 'configureCell cellToConfigure', cellToConfigure);
+
+        const { newSpanRows, newSpanCols } = await getUserCellConfigurationInput(cellToConfigure);
+
+        log(false, 'new span values from dialog', {
+          newSpanRows,
+          newSpanCols,
+        });
+
+        const newEntries = {
+          ...this.data.grid.entries,
+          [entryId]: {
+            ...cellToConfigure,
+            spanRows: newSpanRows,
+            spanCols: newSpanCols,
+          },
+        };
+
+        log(false, 'newEntries', newEntries);
+
+        const newData = {
+          ...this.data,
+          grid: {
+            ...this.data.grid,
+            entries: newEntries,
+          },
+        };
+
+        await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, newData);
+        this.render();
+        break;
+      }
+      case ClickAction.open: {
+        if (!entityUuid) {
+          return;
+        }
+        try {
+          const relevantEntity = await fromUuid(entityUuid);
+          const relevantEntitySheet = relevantEntity?.sheet;
+          log(false, 'trying to edit entity', { relevantEntitySheet });
+
+          // If the relevantEntitySheet is already rendered:
+          if (relevantEntitySheet.rendered) {
+            relevantEntitySheet.maximize();
+            //@ts-ignore
+            relevantEntitySheet.bringToTop();
+          }
+
+          // Otherwise render the relevantEntitySheet
+          else relevantEntitySheet.render(true);
+        } catch (e) {
+          log(true, 'error opening entity sheet', e);
+        }
+        break;
+      }
+      case ClickAction.refresh: {
+        this.render();
+        break;
+      }
+      case ClickAction['toggle-gm-screen']: {
+        try {
+          this.toggleGmScreenVisibility();
+        } catch (e) {
+          log(true, 'error toggling GM Screen', e);
+        }
+        break;
+      }
+      default: {
+        return;
+      }
+    }
+  }
+
   activateListeners(html) {
     super.activateListeners(html);
-    $(html).on('click', 'button', handleClickEvents.bind(this));
-    $(html).on('click', 'a', handleClickEvents.bind(this));
+    $(html).on('click', 'button', this.handleClickEvents.bind(this));
+    $(html).on('click', 'a', this.handleClickEvents.bind(this));
 
     // handle select of an entity
     $(html).on('change', 'select', async (e) => {
@@ -176,16 +321,24 @@ export class GmScreenApplication extends Application {
     const getAllGridEntries = async () => {
       return Promise.all(
         Object.values(this.data.grid.entries).map(async (entry: GmScreenGridEntry) => {
-          const relevantEntity = await fromUuid(entry.entityUuid);
+          try {
+            const relevantEntity = await fromUuid(entry.entityUuid);
 
-          log(false, 'entity hydration', {
-            relevantEntity,
-          });
+            log(false, 'entity hydration', {
+              relevantEntity,
+              entry,
+            });
 
-          return {
-            ...entry,
-            type: relevantEntity?.entity,
-          };
+            return {
+              ...entry,
+              type: relevantEntity?.entity,
+            };
+          } catch (e) {
+            log(false, 'no entity for this entry', {
+              entry,
+            });
+            return entry;
+          }
         })
       );
     };
