@@ -42,7 +42,6 @@ export async function _gmScreenMigrate() {
     }, {});
 
     const output: GmScreenConfig = {
-      ...gmScreenConfig,
       activeGridId: 'default',
       grids: {
         default: {

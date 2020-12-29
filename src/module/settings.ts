@@ -7,15 +7,15 @@ const defaultGmScreenConfig: GmScreenConfig = {
     default: {
       name: 'Main',
       id: 'default',
-    entries: {},
-  },
+      entries: {},
+    },
   },
 };
 
 export const registerSettings = function () {
   // Debug use
-  CONFIG[MODULE_ID] = { debug: false };
-  // CONFIG.debug.hooks = true;
+  CONFIG[MODULE_ID] = { debug: true };
+  CONFIG.debug.hooks = true;
 
   game.settings.register(MODULE_ID, MySettings.gmScreenConfig, {
     name: `${MODULE_ABBREV}.settings.${MySettings.gmScreenConfig}.Name`,

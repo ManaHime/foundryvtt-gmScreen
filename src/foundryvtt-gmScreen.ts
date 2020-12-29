@@ -43,8 +43,8 @@ Hooks.once('init', async function () {
 /* ------------------------------------ */
 /* When ready							*/
 /* ------------------------------------ */
-Hooks.once('ready', function () {
-  _gmScreenMigrate();
+Hooks.once('ready', async function () {
+  await _gmScreenMigrate();
 
   window[MODULE_ID] = { migration: _gmScreenMigrate };
 

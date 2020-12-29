@@ -1,5 +1,5 @@
 import { GmScreenConfig, GmScreenGrid, GmScreenGridEntry } from '../../gridTypes';
-import { MODULE_ABBREV, MODULE_ID, MySettings, TEMPLATES } from '../constants';
+import { MODULE_ABBREV, MODULE_ID, MySettings, numberRegex, TEMPLATES } from '../constants';
 import { getGridElementsPosition, getUserCellConfigurationInput, injectCellContents, log } from '../helpers';
 
 enum ClickAction {
@@ -19,7 +19,13 @@ export class GmScreenApplication extends Application {
 
   constructor(options = {}) {
     super(options);
+    const data: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
+    const columns: number = game.settings.get(MODULE_ID, MySettings.columns);
+    const rows: number = game.settings.get(MODULE_ID, MySettings.rows);
 
+    this.data = data;
+    this.columns = columns;
+    this.rows = rows;
     this.expanded = false;
   }
 
@@ -335,7 +341,19 @@ export class GmScreenApplication extends Application {
         injectCellContents(relevantUuid, gridCellContent);
       });
 
-    this.updateCSSPropertyVariable(html, '.grid-cell', 'width', '--cell-width');
+    // set some CSS Variables for child element use
+    this.updateCSSPropertyVariable(html, '.grid-cell', 'width', '--this-cell-width');
+
+    const vanillaGridElement = document.querySelector('.grid');
+    const vanillaGridElementStyles = window.getComputedStyle(vanillaGridElement);
+    const cols = vanillaGridElementStyles['grid-template-columns'].split(' ');
+    const colWidth = cols[0];
+
+    $(html)
+      .find('.grid')
+      .each((i, gridElement) => {
+        gridElement.style.setProperty('--grid-cell-width', colWidth);
+      });
   }
 
   /**
@@ -386,14 +404,7 @@ export class GmScreenApplication extends Application {
    * @override
    */
   async getData() {
-    const data: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
-    const columns: number = game.settings.get(MODULE_ID, MySettings.columns);
-    const rows: number = game.settings.get(MODULE_ID, MySettings.rows);
     const displayDrawer: boolean = game.settings.get(MODULE_ID, MySettings.displayDrawer);
-
-    this.data = data;
-    this.columns = columns;
-    this.rows = rows;
 
     const entityOptions = [
       { label: 'ENTITY.Actor', entries: game.actors.entries },
@@ -410,7 +421,7 @@ export class GmScreenApplication extends Application {
       };
     });
 
-    const emptyCellsNum = Number(columns) * Number(rows) - this.numOccupiedCells;
+    const emptyCellsNum = Number(this.columns) * Number(this.rows) - this.numOccupiedCells;
     const emptyCells: Partial<GmScreenGridEntry>[] =
       emptyCellsNum > 0 ? [...new Array(emptyCellsNum)].map(() => ({})) : [];
 
@@ -418,9 +429,9 @@ export class GmScreenApplication extends Application {
       ...super.getData(),
       entityOptions,
       gridEntries: [...(await this.getAllActiveGridEntries()), ...emptyCells],
-      data,
-      columns,
-      rows,
+      data: this.data,
+      columns: this.columns,
+      rows: this.rows,
       expanded: this.expanded,
       displayDrawer,
     };
@@ -459,6 +470,8 @@ export class GmScreenApplication extends Application {
    * @override
    */
   async _onDrop(event) {
+    event.stopPropagation();
+
     // Try to extract the data
     let data;
     try {
