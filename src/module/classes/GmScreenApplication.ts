@@ -36,6 +36,7 @@ export class GmScreenApplication extends Application {
     const columns: number = game.settings.get(MODULE_ID, MySettings.columns);
     const rows: number = game.settings.get(MODULE_ID, MySettings.rows);
     const displayDrawer: boolean = game.settings.get(MODULE_ID, MySettings.displayDrawer);
+    const gmScreenConfig: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
 
     const drawerOptions = {
       popOut: false,
@@ -49,13 +50,33 @@ export class GmScreenApplication extends Application {
       resizable: true,
     };
 
-    const totalCells = Number(columns) * Number(rows);
+    // set all of the cells of all the grids to be scrollY managed
+    const scrollY = Object.keys(gmScreenConfig.grids).reduce((acc, gridKey) => {
+      const gridColumns = gmScreenConfig.grids[gridKey].columnOverride ?? columns;
+      const gridRows = gmScreenConfig.grids[gridKey].rowOverride ?? rows;
+
+      const totalCells = Number(gridColumns) * Number(gridRows);
+
+      const gridKeyScrollY = [...new Array(totalCells)].map(
+        (_, index) => `#gm-screen-${gridKey}-cell-${index} .gm-screen-grid-cell-content`
+      );
+      return acc.concat(gridKeyScrollY);
+    }, []);
+
     return mergeObject(super.defaultOptions, {
       ...(displayDrawer ? drawerOptions : popOutOptions),
+      tabs: [
+        {
+          navSelector: '.tabs',
+          contentSelector: '.gm-screen-app',
+          initial: 'default',
+        },
+      ],
       template: TEMPLATES.screen,
       id: 'gm-screen-app',
       dragDrop: [{ dragSelector: '.gm-screen-grid-cell', dropSelector: '.gm-screen-grid-cell' }],
-      scrollY: [...new Array(totalCells)].map((_, index) => `#gm-screen-cell-${index} .gm-screen-grid-cell-content`),
+
+      scrollY,
     });
   }
 
@@ -63,8 +84,8 @@ export class GmScreenApplication extends Application {
     return this.data.grids[this.data.activeGridId];
   }
 
-  get numOccupiedCells() {
-    return Object.values(this.activeGrid.entries).reduce((acc, entry) => {
+  static getNumOccupiedCells(grid: GmScreenGrid) {
+    return Object.values(grid.entries).reduce((acc, entry) => {
       const cellsTaken = (entry.spanCols || 1) * (entry.spanRows || 1);
       return acc + cellsTaken;
     }, 0);
@@ -397,6 +418,53 @@ export class GmScreenApplication extends Application {
       });
   }
 
+  /**
+   * All grids with entries hydrated with their respective entities
+   *
+   */
+  async getAllGridEntries(): Promise<
+    Record<string, { entry: GmScreenGridEntry; relevantEntity: Awaited<ReturnType<typeof fromUuid>> }[]>
+  > {
+    return Object.values(this.data.grids).reduce(async (acc, grid) => {
+      const gridEntries = Promise.all(
+        Object.values(grid.entries).map(async (entry: GmScreenGridEntry) => {
+          try {
+            const relevantEntity = await fromUuid(entry.entityUuid);
+
+            log(false, 'entity hydration', {
+              relevantEntity,
+              entry,
+            });
+
+            return {
+              ...entry,
+              type: relevantEntity?.entity,
+            };
+          } catch (e) {
+            log(false, 'no entity for this entry', {
+              entry,
+            });
+            return entry;
+          }
+        })
+      );
+
+      const gridColumns = grid.columnOverride ?? this.columns;
+      const gridRows = grid.rowOverride ?? this.rows;
+
+      const emptyCellsNum = Number(gridColumns) * Number(gridRows) - GmScreenApplication.getNumOccupiedCells(grid);
+      const emptyCells: Partial<GmScreenGridEntry>[] =
+        emptyCellsNum > 0 ? [...new Array(emptyCellsNum)].map(() => ({})) : [];
+
+      acc[grid.id] = [...(await gridEntries), ...emptyCells];
+
+      return acc;
+    }, {});
+  }
+
+  /**
+   * Deprecated
+   */
   getAllActiveGridEntries() {
     return Promise.all(
       Object.values(this.activeGrid.entries).map(async (entry: GmScreenGridEntry) => {
@@ -446,14 +514,15 @@ export class GmScreenApplication extends Application {
       };
     });
 
-    const emptyCellsNum = Number(this.columns) * Number(this.rows) - this.numOccupiedCells;
-    const emptyCells: Partial<GmScreenGridEntry>[] =
-      emptyCellsNum > 0 ? [...new Array(emptyCellsNum)].map(() => ({})) : [];
+    // const emptyCellsNum = Number(this.columns) * Number(this.rows) - this.numOccupiedCells;
+    // const emptyCells: Partial<GmScreenGridEntry>[] =
+    //   emptyCellsNum > 0 ? [...new Array(emptyCellsNum)].map(() => ({})) : [];
 
     const newAppData = {
       ...super.getData(),
       entityOptions,
-      gridEntries: [...(await this.getAllActiveGridEntries()), ...emptyCells],
+      // gridEntries: [...(await this.getAllActiveGridEntries()), ...emptyCells],
+      grids: await this.getAllGridEntries(), // TODO: Fix HTML to accomodate this
       data: this.data,
       columns: this.columns,
       rows: this.rows,
