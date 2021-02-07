@@ -19,7 +19,3 @@ export interface GmScreenGridEntry {
   entityUuid?: string;
   entryId: string;
 }
-
-export interface GmScreenConfigs {
-  gridIds: string[]; // uuids generated for each grid
-}
