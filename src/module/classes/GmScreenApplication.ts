@@ -419,36 +419,12 @@ export class GmScreenApplication extends Application {
   }
 
   /**
-   * All grids with entries hydrated with their respective entities
-   *
+   * All grids with entries hydrated with empty cells
    */
-  async getAllGridEntries(): Promise<
-    Record<string, { entry: GmScreenGridEntry; relevantEntity: Awaited<ReturnType<typeof fromUuid>> }[]>
-  > {
-    return Object.values(this.data.grids).reduce(async (acc, grid) => {
-      const gridEntries = Promise.all(
-        Object.values(grid.entries).map(async (entry: GmScreenGridEntry) => {
-          try {
-            const relevantEntity = await fromUuid(entry.entityUuid);
-
-            log(false, 'entity hydration', {
-              relevantEntity,
-              entry,
-            });
-
-            return {
-              ...entry,
-              type: relevantEntity?.entity,
-            };
-          } catch (e) {
-            log(false, 'no entity for this entry', {
-              entry,
-            });
-            return entry;
-          }
-        })
-      );
-
+  getHydratedGrids() {
+    return Object.values(this.data.grids).reduce<
+      Record<string, { grid: GmScreenGrid; gridEntries: Partial<GmScreenGridEntry>[] }>
+    >((acc, grid) => {
       const gridColumns = grid.columnOverride ?? this.columns;
       const gridRows = grid.rowOverride ?? this.rows;
 
@@ -456,44 +432,19 @@ export class GmScreenApplication extends Application {
       const emptyCells: Partial<GmScreenGridEntry>[] =
         emptyCellsNum > 0 ? [...new Array(emptyCellsNum)].map(() => ({})) : [];
 
-      acc[grid.id] = [...(await gridEntries), ...emptyCells];
+      acc[grid.id] = {
+        grid,
+        gridEntries: [...Object.values(grid.entries), ...emptyCells],
+      };
 
       return acc;
     }, {});
   }
 
   /**
-   * Deprecated
-   */
-  getAllActiveGridEntries() {
-    return Promise.all(
-      Object.values(this.activeGrid.entries).map(async (entry: GmScreenGridEntry) => {
-        try {
-          const relevantEntity = await fromUuid(entry.entityUuid);
-
-          log(false, 'entity hydration', {
-            relevantEntity,
-            entry,
-          });
-
-          return {
-            ...entry,
-            type: relevantEntity?.entity,
-          };
-        } catch (e) {
-          log(false, 'no entity for this entry', {
-            entry,
-          });
-          return entry;
-        }
-      })
-    );
-  }
-
-  /**
    * @override
    */
-  async getData() {
+  getData() {
     const rightMargin: number = game.settings.get(MODULE_ID, MySettings.rightMargin);
     const drawerWidth: number = game.settings.get(MODULE_ID, MySettings.drawerWidth);
     const drawerHeight: number = game.settings.get(MODULE_ID, MySettings.drawerHeight);
@@ -521,8 +472,7 @@ export class GmScreenApplication extends Application {
     const newAppData = {
       ...super.getData(),
       entityOptions,
-      // gridEntries: [...(await this.getAllActiveGridEntries()), ...emptyCells],
-      grids: await this.getAllGridEntries(), // TODO: Fix HTML to accomodate this
+      grids: this.getHydratedGrids(),
       data: this.data,
       columns: this.columns,
       rows: this.rows,

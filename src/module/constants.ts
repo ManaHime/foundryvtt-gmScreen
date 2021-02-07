@@ -3,6 +3,8 @@ export const MODULE_ABBREV = 'GMSCR';
 
 export const TEMPLATES = {
   screen: `modules/${MODULE_ID}/templates/screen.hbs`,
+  screenCell: `modules/${MODULE_ID}/templates/parts/screen-cell.hbs`,
+  screenGrid: `modules/${MODULE_ID}/templates/parts/screen-grid.hbs`,
   compactRollTable: `modules/${MODULE_ID}/templates/parts/compact-roll-table.hbs`,
   compactJournalEntry: `modules/${MODULE_ID}/templates/parts/compact-journal-entry.hbs`,
 };

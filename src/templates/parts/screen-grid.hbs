@@ -1,0 +1,9 @@
+<div class="gm-screen-container {{#if ../displayDrawer}}window-content{{/if}} tab" data-tab="{{grid.id}}">
+  <div class="gm-screen-grid"
+    style="grid-template-columns: repeat({{#if grid.columnOverride}}{{grid.columnOverride}}{{else}}{{columns}}{{/if}}, 1fr); grid-template-rows: repeat({{#if grid.rowOverride}}{{grid.rowOverride}}{{else}}{{rows}}{{/if}}, 1fr);">
+
+    {{#each gridEntries}}
+    {{> 'modules/gm-screen/templates/parts/screen-cell.hbs'}}
+    {{/each}}
+  </div>
+</div>
