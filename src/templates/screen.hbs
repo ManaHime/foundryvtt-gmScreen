@@ -7,7 +7,6 @@
    --gm-screen-right-offset: {{rightMargin}}vw;
    " {{/if}}>
 
-  {{#if displayDrawer}}
   <div class='gm-screen-actions tabs'>
 
 
@@ -15,6 +14,7 @@
     <button type='button' class='item' data-tab='combat' data-action='setActiveGridId'>{{localize
       'EFFECT.Combat'}}</button>
 
+    {{#if displayDrawer}}
     <div class="meta-actions">
       <button class="clear" type='button' data-action="clearGrid" title={{localize 'GMSCR.gmScreen.Reset' }}><i
           class="fas fa-ban"></i></button>
@@ -24,8 +24,8 @@
 
     <button class="gm-screen-button" data-action="toggle-gm-screen"><i class="fas fa-book-reader"></i>
       {{localize 'GMSCR.gmScreen.Open'}}</button>
+    {{/if}}
   </div>
-  {{/if}}
 
   {{#each grids}}
   {{> 'modules/gm-screen/templates/parts/screen-grid.hbs'}}

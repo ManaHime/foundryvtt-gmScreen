@@ -181,7 +181,7 @@ export class GmScreenApplication extends Application {
 
     const activeGridDetails = {
       activeGridId: this.data.activeGridId,
-      activeGridName: this.data.grids[this.data.activeGridId].name,
+      activeGridName: this.data.grids[this.data.activeGridId]?.name,
     };
 
     if (this.expanded) {
