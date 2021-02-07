@@ -8,28 +8,27 @@
    " {{/if}}>
 
   {{#if displayDrawer}}
-  <div class='gm-screen-actions'>
-    <button class="clear" type='button' data-action="clearGrid"><i class="fas fa-ban"></i>{{localize
-      'GMSCR.gmScreen.Reset'}}</button>
+  <div class='gm-screen-actions tabs'>
 
-    <button class="refresh" type='button' data-action="refresh"><i class="fas fa-sync"></i>
-      {{localize 'GMSCR.gmScreen.Refresh'}}</button>
+
+    <button type='button' class='item' data-tab='default'>{{localize 'Default'}}</button>
+    <button type='button' class='item' data-tab='combat'>{{localize 'EFFECT.Combat'}}</button>
+
+
+    <div class="meta-actions">
+      <button class="clear" type='button' data-action="clearGrid" title={{localize 'GMSCR.gmScreen.Reset' }}><i
+          class="fas fa-ban"></i></button>
+      <button class="refresh" type='button' data-action="refresh" title={{localize 'GMSCR.gmScreen.Refresh' }}><i
+          class="fas fa-sync"></i></button>
+    </div>
 
     <button class="gm-screen-button" data-action="toggle-gm-screen"><i class="fas fa-book-reader"></i>
       {{localize 'GMSCR.gmScreen.Open'}}</button>
   </div>
   {{/if}}
 
-  <nav class="sheet-tabs tabs">
-    <a class='item' data-tab='default'>{{localize 'Default'}}</a>
-    <a class='item' data-tab='combat'>{{localize 'EFFECT.Combat'}}</a>
-  </nav>
-
   {{#each grids}}
-
-  {{> 'modules/gm-screen/templates/parts/screen-grid.hbs' rows=../rows columns=../columns displayDrawer=../displayDrawer
-  }}
-
+  {{> 'modules/gm-screen/templates/parts/screen-grid.hbs'}}
   {{/each}}
 
 </div>
