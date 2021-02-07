@@ -9,6 +9,7 @@ enum ClickAction {
   'configureCell' = 'configureCell',
   'open' = 'open',
   'toggle-gm-screen' = 'toggle-gm-screen',
+  'setActiveGridId' = 'setActiveGridId',
 }
 
 export class GmScreenApplication extends Application {
@@ -69,7 +70,7 @@ export class GmScreenApplication extends Application {
         {
           navSelector: '.tabs',
           contentSelector: '.gm-screen-app',
-          initial: 'default',
+          initial: gmScreenConfig.activeGridId ?? 'default',
         },
       ],
       template: TEMPLATES.screen,
@@ -174,7 +175,14 @@ export class GmScreenApplication extends Application {
    * @param {boolean} expanded
    */
   toggleGmScreenVisibility(expanded: boolean = !this.expanded) {
+    // TODO: Allow toggling open to a specific tab
+    // TODO: Provide API for other modules to know what tabs exist
     this.expanded = expanded;
+
+    const activeGridDetails = {
+      activeGridId: this.data.activeGridId,
+      activeGridName: this.data.grids[this.data.activeGridId].name,
+    };
 
     if (this.expanded) {
       ui.windows[this.appId] = this; // add our window to the stack, pretending we are an open Application
@@ -184,14 +192,20 @@ export class GmScreenApplication extends Application {
 
       $('.gm-screen-app').addClass('expanded');
 
-      // on open, call MyHooks.openClose with isOpen: true
-      Hooks.callAll(MyHooks.openClose, this, { isOpen: true });
+      // on open, call MyHooks.openClose with isOpen: true and the active grid details
+      Hooks.callAll(MyHooks.openClose, this, {
+        isOpen: true,
+        ...activeGridDetails,
+      });
     } else {
       $('.gm-screen-app').removeClass('expanded');
       delete ui.windows[this.appId]; // remove our window to the stack, pretending we are a closed Application
 
-      // on open, call MyHooks.openClose with isOpen: false
-      Hooks.callAll(MyHooks.openClose, this, { isOpen: false });
+      // on open, call MyHooks.openClose with isOpen: false and the active grid details
+      Hooks.callAll(MyHooks.openClose, this, {
+        isOpen: false,
+        ...activeGridDetails,
+      });
     }
   }
 
@@ -322,8 +336,8 @@ export class GmScreenApplication extends Application {
 
           // Otherwise render the relevantEntitySheet
           else relevantEntitySheet.render(true);
-        } catch (e) {
-          log(true, 'error opening entity sheet', e);
+        } catch (error) {
+          log(true, 'error opening entity sheet', error);
         }
         break;
       }
@@ -331,11 +345,28 @@ export class GmScreenApplication extends Application {
         this.render();
         break;
       }
+      case ClickAction.setActiveGridId: {
+        const newActiveGridId = e.currentTarget.dataset.tab;
+
+        log(false, 'trying to set active grid', { newActiveGridId });
+
+        try {
+          const newGmScreenConfig = {
+            ...this.data,
+            activeGridId: e.currentTarget.dataset.tab,
+          };
+          await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, newGmScreenConfig);
+          this.data = newGmScreenConfig;
+        } catch (error) {
+          log(true, 'error setting active tab', error);
+        }
+        break;
+      }
       case ClickAction['toggle-gm-screen']: {
         try {
           this.toggleGmScreenVisibility();
-        } catch (e) {
-          log(true, 'error toggling GM Screen', e);
+        } catch (error) {
+          log(true, 'error toggling GM Screen', error);
         }
         break;
       }
@@ -464,10 +495,6 @@ export class GmScreenApplication extends Application {
         }, {}),
       };
     });
-
-    // const emptyCellsNum = Number(this.columns) * Number(this.rows) - this.numOccupiedCells;
-    // const emptyCells: Partial<GmScreenGridEntry>[] =
-    //   emptyCellsNum > 0 ? [...new Array(emptyCellsNum)].map(() => ({})) : [];
 
     const newAppData = {
       ...super.getData(),
