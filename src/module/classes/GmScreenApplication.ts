@@ -13,24 +13,27 @@ enum ClickAction {
 }
 
 export class GmScreenApplication extends Application {
-  columns: number;
   data: GmScreenConfig;
-  displayDrawer: boolean;
   expanded: boolean;
-  rows: number;
 
   constructor(options = {}) {
     super(options);
-    const columns: number = game.settings.get(MODULE_ID, MySettings.columns);
     const data: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
-    const displayDrawer: boolean = game.settings.get(MODULE_ID, MySettings.displayDrawer);
-    const rows: number = game.settings.get(MODULE_ID, MySettings.rows);
 
-    this.columns = columns;
     this.data = data;
-    this.displayDrawer = displayDrawer;
     this.expanded = false;
-    this.rows = rows;
+  }
+
+  get rows(): number {
+    return game.settings.get(MODULE_ID, MySettings.rows);
+  }
+
+  get columns(): number {
+    return game.settings.get(MODULE_ID, MySettings.columns);
+  }
+
+  get displayDrawer(): boolean {
+    return game.settings.get(MODULE_ID, MySettings.columns);
   }
 
   static get defaultOptions() {

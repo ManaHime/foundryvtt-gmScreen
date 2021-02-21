@@ -1,6 +1,6 @@
 import { MODULE_ABBREV, MODULE_ID, MySettings, TEMPLATES } from '../constants';
 import { log } from '../helpers';
-import { GmScreenConfig } from '../../gridTypes';
+import { GmScreenConfig, GmScreenGrid } from '../../gridTypes';
 
 const defaultGmScreenConfig: GmScreenConfig = {
   activeGridId: 'default',
@@ -21,21 +21,24 @@ export const registerSettings = function () {
 
 export class GmScreenSettings extends FormApplication {
   static init() {
+    // Debug use
+    CONFIG[MODULE_ID] = { debug: true };
+    // CONFIG.debug.hooks = true;
+
     game.settings.registerMenu(MODULE_ID, 'menu', {
-      name: 'D&D5e Extender Settings',
-      label: 'Extender Settings',
-      icon: 'fas fa-hammer',
+      name: `${MODULE_ABBREV}.settings.${MySettings.gmScreenConfig}.Name`,
+      label: `${MODULE_ABBREV}.settings.${MySettings.gmScreenConfig}.Label`,
+      icon: 'fas fa-table',
       type: GmScreenSettings,
       restricted: true,
+      hint: `${MODULE_ABBREV}.settings.${MySettings.gmScreenConfig}.Hint`,
     });
 
     game.settings.register(MODULE_ID, MySettings.gmScreenConfig, {
-      name: `${MODULE_ABBREV}.settings.${MySettings.gmScreenConfig}.Name`,
       default: defaultGmScreenConfig,
       type: Object,
       scope: 'world',
       config: false,
-      hint: `${MODULE_ABBREV}.settings.${MySettings.gmScreenConfig}.Hint`,
     });
 
     game.settings.register(MODULE_ID, MySettings.migrated, {
@@ -131,20 +134,13 @@ export class GmScreenSettings extends FormApplication {
   static get defaultOptions() {
     return {
       ...super.defaultOptions,
-      classes: ['dnd5e-extender-settings'],
+      classes: ['gm-screen-config'],
       closeOnSubmit: false,
       height: 'auto',
       submitOnChange: false,
       submitOnClose: false,
       template: TEMPLATES.settings,
-      title: 'D&D5e Extender Settings',
-      tabs: [
-        {
-          navSelector: '.tabs',
-          contentSelector: 'form',
-          initial: 'warning',
-        },
-      ],
+      title: game.i18n.localize(`${MODULE_ABBREV}.gridConfig.GridConfig`),
       width: 600,
     };
   }
@@ -153,7 +149,15 @@ export class GmScreenSettings extends FormApplication {
     super(object, options);
   }
 
-  getSettingsData() {
+  get rows(): number {
+    return game.settings.get(MODULE_ID, MySettings.rows);
+  }
+
+  get columns(): number {
+    return game.settings.get(MODULE_ID, MySettings.columns);
+  }
+
+  get settingsData() {
     const gmScreenConfig: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
 
     log(false, 'getSettingsData', {
@@ -166,8 +170,12 @@ export class GmScreenSettings extends FormApplication {
   }
 
   getData() {
-    let data = super.getData();
-    data.settings = this.getSettingsData();
+    const data = {
+      ...super.getData(),
+      settings: this.settingsData,
+      defaultRows: this.rows,
+      defaultColumns: this.columns,
+    };
 
     log(false, data);
     return data;
@@ -190,18 +198,21 @@ export class GmScreenSettings extends FormApplication {
       const tableElement = currentTarget.siblings('table');
       const tbodyElement = $(tableElement).find('tbody');
 
-      const newRowData = {
-        index: tbodyElement.children().length,
-        item: {
-          isEditable: true,
-          id: '',
+      const newGridRowTemplateData = {
+        gridId: randomID(),
+        grid: {
           name: '',
+          columnOverride: '',
+          rowOverride: '',
         },
+        defaultColumns: this.columns,
+        defaultRows: this.rows,
       };
 
-      const newRow = $(await renderTemplate(TEMPLATES[table].tableRow, newRowData));
+      const newRow = $(await renderTemplate(TEMPLATES[table].tableRow, newGridRowTemplateData));
       // render a new row at the end of tbody
       tbodyElement.append(newRow);
+      this.setPosition({}); // recalc height
     };
 
     const handleDeleteRowClick = (currentTarget: JQuery<any>) => {
@@ -210,6 +221,7 @@ export class GmScreenSettings extends FormApplication {
       });
 
       currentTarget.parentsUntil('tbody').remove();
+      this.setPosition({}); // recalc height
     };
 
     html.on('click', (e) => {
@@ -232,7 +244,17 @@ export class GmScreenSettings extends FormApplication {
     });
   }
 
+  // grids: {
+  //   default: {
+  //     name: 'Main',
+  //     id: 'default',
+  //     entries: {},
+  //   },
+  // },
+
   async _updateObject(ev, formData) {
+    const gmScreenConfig: GmScreenConfig = game.settings.get(MODULE_ID, MySettings.gmScreenConfig);
+
     const data = expandObject(formData);
 
     log(false, {
@@ -240,20 +262,46 @@ export class GmScreenSettings extends FormApplication {
       data,
     });
 
-    const abilitiesArray = Object.values(data.abilities || {});
-    const skillsArray = Object.values(data.skills || {});
+    // TODO: re-create data.grids with a more sensible key, append `id` to the object, create empty `entries`
 
-    const newCustomAbilities = abilitiesArray.length ? mergeObject(customAbilities, abilitiesArray) : abilitiesArray;
-    const newCustomSkills = skillsArray.length ? mergeObject(customSkills, skillsArray) : skillsArray;
+    const newGrids = Object.values<Partial<GmScreenGrid>>(data.grids).reduce<GmScreenConfig['grids']>(
+      (acc, grid) => {
+        const gridId = grid.id ?? randomID();
+
+        // if this grid exists already, modify it
+        if (acc.hasOwnProperty(gridId)) {
+          acc[gridId] = {
+            ...acc[gridId],
+            ...grid,
+          };
+
+          return acc;
+        }
+
+        // otherwise create it
+        acc[gridId] = {
+          ...grid,
+          entries: {},
+          name: grid.name ?? '',
+          id: gridId,
+        };
+
+        return acc;
+      },
+      { ...gmScreenConfig.grids }
+    );
+
+    const newGmScreenConfig = {
+      ...gmScreenConfig,
+      grids: newGrids,
+    };
 
     log(true, 'setting settings', {
-      abilities: newCustomAbilities,
-      skills: newCustomSkills,
+      newGmScreenConfig,
     });
 
-    await game.settings.set(MODULE_ID, MySettings.customAbilities, newCustomAbilities);
-    await game.settings.set(MODULE_ID, MySettings.customSkills, newCustomSkills);
+    await game.settings.set(MODULE_ID, MySettings.gmScreenConfig, newGmScreenConfig);
 
-    location.reload();
+    this.close();
   }
 }
