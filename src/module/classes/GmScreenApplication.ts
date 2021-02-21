@@ -52,6 +52,7 @@ export class GmScreenApplication extends Application {
       width: Number(columns) * 400,
       height: Number(rows) * 300,
       resizable: true,
+      title: game.i18n.localize(`${MODULE_ABBREV}.gmScreen.Title`),
     };
 
     // set all of the cells of all the grids to be scrollY managed
