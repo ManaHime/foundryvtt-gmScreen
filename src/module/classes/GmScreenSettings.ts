@@ -13,16 +13,10 @@ const defaultGmScreenConfig: GmScreenConfig = {
   },
 };
 
-export const registerSettings = function () {
-  // Debug use
-  CONFIG[MODULE_ID] = { debug: false };
-  // CONFIG.debug.hooks = true;
-};
-
 export class GmScreenSettings extends FormApplication {
   static init() {
     // Debug use
-    CONFIG[MODULE_ID] = { debug: true };
+    CONFIG[MODULE_ID] = { debug: false };
     // CONFIG.debug.hooks = true;
 
     game.settings.registerMenu(MODULE_ID, 'menu', {
