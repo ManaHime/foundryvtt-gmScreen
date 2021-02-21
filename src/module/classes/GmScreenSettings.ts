@@ -15,7 +15,7 @@ const defaultGmScreenConfig: GmScreenConfig = {
 
 export const registerSettings = function () {
   // Debug use
-  CONFIG[MODULE_ID] = { debug: true };
+  CONFIG[MODULE_ID] = { debug: false };
   // CONFIG.debug.hooks = true;
 };
 

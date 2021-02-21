@@ -33,7 +33,7 @@ export class GmScreenApplication extends Application {
   }
 
   get displayDrawer(): boolean {
-    return game.settings.get(MODULE_ID, MySettings.columns);
+    return game.settings.get(MODULE_ID, MySettings.displayDrawer);
   }
 
   static get defaultOptions() {
@@ -67,6 +67,11 @@ export class GmScreenApplication extends Application {
       return acc.concat(gridKeyScrollY);
     }, []);
 
+    log(false, {
+      displayDrawer,
+      options: displayDrawer ? drawerOptions : popOutOptions,
+    });
+
     return mergeObject(super.defaultOptions, {
       ...(displayDrawer ? drawerOptions : popOutOptions),
       tabs: [
@@ -79,7 +84,6 @@ export class GmScreenApplication extends Application {
       template: TEMPLATES.screen,
       id: 'gm-screen-app',
       dragDrop: [{ dragSelector: '.gm-screen-grid-cell', dropSelector: '.gm-screen-grid-cell' }],
-
       scrollY,
     });
   }
